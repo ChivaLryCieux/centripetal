@@ -28,12 +28,12 @@ let colorset = [];
 let colorbg = "1C2611-2B4016-261416-031740".split("-").map((a) => "#" + a); // dark
 let filter1;
 let t, par_num;
-let originalGraphics;
-let lineGraphics;
+let originalGraphics; // 合并后的主离屏画布，包含背景和所有累加绘制的线条与粒子
 let glowGraphics; // 独立的向心辉光离屏画布，每帧清空以消除灰色拖影
 let fractalGraphics; // 顶层分形图案静态缓存离屏画布，在 setup 中一次性绘制，保持高性能
 let overAllTexture; // 噪点纹理离屏画布
 let ver;
+let bgCol; // 随机的深色背景底色
 
 // 向心粒子系统：粒子从外缘向中心螺旋运动
 let cParticles = [];
@@ -55,7 +55,6 @@ function setup() {
 	margin = mySize / 100;
 	createCanvas(mySize, mySize);
 	originalGraphics = createGraphics(width, height);
-	lineGraphics = createGraphics(width, height);
 	glowGraphics = createGraphics(width, height);
 
 	// 初始化向心粒子，分散在不同半径处，形成持续的向心流
@@ -88,12 +87,15 @@ function setup() {
 	colorset[5] = random(colors2);
 	// ver = random([1, 2]);
 	ver = 2;
+	bgCol = random(colorbg);
 	if (ver == 1) {
-		background("#fafdff");
+		bgCol = "#fafdff";
 	}
-	if (ver == 2) {
-		background("#202020");
-	}
+	background(bgCol);
+
+	// 初始化主离屏画布为不透明的背景底色，以 RGB 模式安全处理避免 colorMode 混淆
+	let c = color(bgCol);
+	originalGraphics.background(c.levels[0], c.levels[1], c.levels[2]);
 	filter1 = new makeFilter();
 
 	// 初始化分形缓存画布并进行一次性绘制
@@ -116,27 +118,18 @@ function setup() {
 }
 
 function draw() {
-	// 每次绘制前清空主画布背景，配合离屏画布的 destination-out 渐隐，呈现干净饱和的色彩叠加
-	background("#202020");
+	// 不需要每帧重绘主画布背景，因为 opaque 的 originalGraphics 会完全覆盖它并自带渐消背景
 
 	randomSeed(seed);
 	noiseSeed(int(seed));
 	let ver_val = int(random(4, 8));
 
-	// 针对 lineGraphics 进行 destination-out 渐隐（只降低透明度，不混色，保持颜色鲜艳不发灰）
-	// 将 alpha 从 18 调低至 2，使线条/粒子拖尾加长 10 倍，在运动路径上形成长而连贯的星轨
-	lineGraphics.drawingContext.globalCompositeOperation = 'destination-out';
-	lineGraphics.noStroke();
-	lineGraphics.fill(0, 0, 0, 2);
-	lineGraphics.rect(0, 0, width, height);
-	lineGraphics.drawingContext.globalCompositeOperation = 'source-over';
-
-	// 针对 originalGraphics 进行 destination-out 渐隐（只降低透明度，不混色，保持颜色鲜艳不发灰）
-	originalGraphics.drawingContext.globalCompositeOperation = 'destination-out';
+	// 针对已合并的 originalGraphics 进行渐隐
+	// 使用 BLEND 模式叠加极透明的背景色（alpha=3），使拖尾在流向中心的过程中自然过渡到背景色，呈现五彩斑斓的晕染变化而不留灰色拖影
 	originalGraphics.noStroke();
-	originalGraphics.fill(0, 0, 0, 2);
+	let c = color(bgCol);
+	originalGraphics.fill(c.levels[0], c.levels[1], c.levels[2], 3);
 	originalGraphics.rect(0, 0, width, height);
-	originalGraphics.drawingContext.globalCompositeOperation = 'source-over';
 
 	// 每帧清空辉光画布，消除累积绘制产生的长灰色拖影，使其表现保持和原版一致的干净通透
 	glowGraphics.clear();
@@ -153,17 +146,18 @@ function draw() {
 		let alphaVal = int(lifeFactor * 200); // 调高最大不透明度至 78% ("c8")，使颜色极其鲜艳饱满
 		let alphaHex = alphaVal.toString(16).padStart(2, '0');
 
-		lineGraphics.fill(str(random(colorset)) + alphaHex);
-		lineGraphics.noStroke();
+		originalGraphics.fill(str(random(colorset)) + alphaHex);
+		originalGraphics.noStroke();
 		if (frameCount % 2 == 0) {
-			lineGraphics.stroke(str(random(colorset)) + alphaHex);
-			lineGraphics.strokeWeight(random(0.40, 0.15) * lifeFactor); // 稍微加粗线条，且随生命因子收缩
-			lineGraphics.noFill();
+			originalGraphics.stroke(str(random(colorset)) + alphaHex);
+			originalGraphics.strokeWeight(random(0.40, 0.15) * lifeFactor); // 稍微加粗线条，且随生命因子收缩
+			originalGraphics.noFill();
 		}
-		lineGraphics.drawingContext.shadowColor = str(random(colorbg)) + "0d";
-		lineGraphics.drawingContext.shadowOffsetX = 1;
-		lineGraphics.drawingContext.shadowOffsetY = 1;
-		lineGraphics.drawingContext.shadowBlur = 0;
+		let lineShadowAlpha = int(lifeFactor * 40).toString(16).padStart(2, '0'); // 给线条也注入轻微有色的晕染感
+		originalGraphics.drawingContext.shadowColor = str(random(colorbg)) + lineShadowAlpha;
+		originalGraphics.drawingContext.shadowOffsetX = random(-0.5, 0.5);
+		originalGraphics.drawingContext.shadowOffsetY = random(-0.5, 0.5);
+		originalGraphics.drawingContext.shadowBlur = random(1, 4) * lifeFactor;
 
 		const xAngle = map(0, 0, width, -random(0.5, 1) * PI, random(0.5, 1) * PI, true);
 		const yAngle = map(height, 0, height, -random(0.5, 1) * PI, random(0.5, 1) * PI, true);
@@ -173,14 +167,12 @@ function draw() {
 		const myX = width / 2 + ringRadius * sin(random(0.5, 1.5) * TAU * t + angle);
 		const myY = height / 2 + ringRadius * cos(random(0.5, 1.5) * TAU * t + angle);
 
-		lineGraphics.push();
-		lineGraphics.translate(myX + sin(random(0.5, 1.5) * TAU * t + angle), myY + cos(random(0.5, 1.5) * TAU * t + angle));
-		lineGraphics.rotate(sin(t) * PI / 10);
-		lineGraphics.ellipse(0, 0, random(0.75, 1.25) * (1 - sqrt(random(random(1)))));
-		lineGraphics.pop();
+		originalGraphics.push();
+		originalGraphics.translate(myX + sin(random(0.5, 1.5) * TAU * t + angle), myY + cos(random(0.5, 1.5) * TAU * t + angle));
+		originalGraphics.rotate(sin(t) * PI / 10);
+		originalGraphics.ellipse(0, 0, random(0.75, 1.25) * (1 - sqrt(random(random(1)))));
+		originalGraphics.pop();
 	}
-
-	image(lineGraphics, 0, 0);
 	t += random(0.005, 0.01);
 
 	// ========== 2. 向心粒子点阵 (originalGraphics) — 由外向内螺旋运动 ==========
@@ -220,11 +212,11 @@ function draw() {
 		originalGraphics.strokeWeight(random(0.25, 0.75) * (1 - sqrt(random(random(random())))) * lifeFactor);
 		originalGraphics.noFill();
 
-		let shadowAlpha = int(lifeFactor * 64).toString(16).padStart(2, '0');
+		let shadowAlpha = int(lifeFactor * 120).toString(16).padStart(2, '0'); // 调高阴影不透明度，使拖尾色彩更为耀眼
 		originalGraphics.drawingContext.shadowColor = str(random(colorbg)) + shadowAlpha;
 		originalGraphics.drawingContext.shadowOffsetX = random(-1, 1);
 		originalGraphics.drawingContext.shadowOffsetY = random(-1, 1);
-		originalGraphics.drawingContext.shadowBlur = 0;
+		originalGraphics.drawingContext.shadowBlur = random(2, 6) * lifeFactor; // 加大发光模糊半径，增加色彩晕染效果
 
 		originalGraphics.push();
 		// 外层散点 (50 个) — 最大扩散半径
