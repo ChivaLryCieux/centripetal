@@ -40,10 +40,11 @@ function makeFilter() {
  * 绘制顶层几何分形图案
  * 在画布中心旋转并递归划分正六边形区域内的三角形
  */
-function drawOverPattern() {
-	push();
-	translate(width / 2, height / 2);
-	rotate(-PI / 2);
+function drawOverPattern(g) {
+	const pg = g || { push, pop, translate, rotate };
+	pg.push();
+	pg.translate(width / 2, height / 2);
+	pg.rotate(-PI / 2);
 	let s = (mySize / 2) * sqrt(3) - 2;
 	let n = 6; // 递归深度
 	for (let theta = TWO_PI / 6; theta < TWO_PI; theta += TWO_PI / 6) {
@@ -54,10 +55,11 @@ function drawOverPattern() {
 			s * sin(theta),
 			s * cos(theta + TWO_PI / 6),
 			s * sin(theta + TWO_PI / 6),
-			n
+			n,
+			g
 		);
 	}
-	pop();
+	pg.pop();
 }
 
 /**
@@ -83,8 +85,9 @@ function prop(x1, y1, x2, y2, k) {
  * @param {number} x2, y2 - 顶点 2 坐标
  * @param {number} x3, y3 - 顶点 3 坐标
  * @param {number} n - 剩余递归深度
+ * @param {object} g - 离屏画布对象 (可选)
  */
-function divideOP(x1, y1, x2, y2, x3, y3, n) {
+function divideOP(x1, y1, x2, y2, x3, y3, n, g) {
 	if (n > 1) {
 		let [xA, yA] = prop(x1, y1, x2, y2, 1 / 3);
 		let [xB, yB] = prop(x1, y1, x2, y2, 2 / 3);
@@ -94,17 +97,17 @@ function divideOP(x1, y1, x2, y2, x3, y3, n) {
 		let [xF, yF] = prop(x3, y3, x1, y1, 2 / 3);
 		let [xG, yG] = prop(xF, yF, xC, yC, 1 / 2);
 		
-		divideOP(x1, y1, xA, yA, xF, yF, n - 1);
-		divideOP(xA, yA, xB, yB, xG, yG, n - 1);
-		divideOP(xB, yB, x2, y2, xC, yC, n - 1);
-		divideOP(xG, yG, xF, yF, xA, yA, n - 1);
-		divideOP(xC, yC, xG, yG, xB, yB, n - 1);
-		divideOP(xF, yF, xG, yG, xE, yE, n - 1);
-		divideOP(xG, yG, xC, yC, xD, yD, n - 1);
-		divideOP(xD, yD, xE, yE, xG, yG, n - 1);
-		divideOP(xE, yE, xD, yD, x3, y3, n - 1);
+		divideOP(x1, y1, xA, yA, xF, yF, n - 1, g);
+		divideOP(xA, yA, xB, yB, xG, yG, n - 1, g);
+		divideOP(xB, yB, x2, y2, xC, yC, n - 1, g);
+		divideOP(xG, yG, xF, yF, xA, yA, n - 1, g);
+		divideOP(xC, yC, xG, yG, xB, yB, n - 1, g);
+		divideOP(xF, yF, xG, yG, xE, yE, n - 1, g);
+		divideOP(xG, yG, xC, yC, xD, yD, n - 1, g);
+		divideOP(xD, yD, xE, yE, xG, yG, n - 1, g);
+		divideOP(xE, yE, xD, yD, x3, y3, n - 1, g);
 	} else {
-		makeTriangle([x1, y1], [x2, y2], [x3, y3]);
+		makeTriangle([x1, y1], [x2, y2], [x3, y3], g);
 	}
 }
 
@@ -113,8 +116,10 @@ function divideOP(x1, y1, x2, y2, x3, y3, n) {
  * @param {number[]} v1 - 顶点 1 [x, y]
  * @param {number[]} v2 - 顶点 2 [x, y]
  * @param {number[]} v3 - 顶点 3 [x, y]
+ * @param {object} g - 离屏画布对象 (可选)
  */
-function makeTriangle(v1, v2, v3) {
+function makeTriangle(v1, v2, v3, g) {
+	const pg = g || { triangle };
 	let points = shuffle([v1, v2, v3]);
 	let [x1, y1] = points[0];
 	let [x2, y2] = points[1];
@@ -123,6 +128,6 @@ function makeTriangle(v1, v2, v3) {
 	for (let i = 0; i < 1; i += iStep) {
 		let [x4, y4] = prop(x1, y1, x2, y2, 1 - i);
 		let [x5, y5] = prop(x1, y1, x3, y3, 1 - i);
-		triangle(x1, y1, x4, y4, x5, y5);
+		pg.triangle(x1, y1, x4, y4, x5, y5);
 	}
 }

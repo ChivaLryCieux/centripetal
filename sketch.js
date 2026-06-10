@@ -30,6 +30,8 @@ let filter1;
 let t, par_num;
 let originalGraphics;
 let lineGraphics;
+let glowGraphics; // 独立的向心辉光离屏画布，每帧清空以消除灰色拖影
+let fractalGraphics; // 顶层分形图案静态缓存离屏画布，在 setup 中一次性绘制，保持高性能
 let overAllTexture; // 噪点纹理离屏画布
 let ver;
 
@@ -54,6 +56,7 @@ function setup() {
 	createCanvas(mySize, mySize);
 	originalGraphics = createGraphics(width, height);
 	lineGraphics = createGraphics(width, height);
+	glowGraphics = createGraphics(width, height);
 
 	// 初始化向心粒子，分散在不同半径处，形成持续的向心流
 	for (let i = 0; i < C_PARTICLE_COUNT; i++) {
@@ -92,6 +95,23 @@ function setup() {
 		background("#202020");
 	}
 	filter1 = new makeFilter();
+
+	// 初始化分形缓存画布并进行一次性绘制
+	fractalGraphics = createGraphics(width, height);
+	fractalGraphics.clear();
+	
+	// 在缓存画布上配置分形绘制属性（复原自原版第 600 帧逻辑）
+	fractalGraphics.strokeWeight(random(0.10, 0.2) / 1);
+	fractalGraphics.stroke(str(random(colorbg)) + "33");
+	fractalGraphics.noFill();
+	fractalGraphics.drawingContext.setLineDash([1, 5, 1, 3]);
+	
+	// 绘制分形
+	drawOverPattern(fractalGraphics);
+	
+	// 重置虚线设置
+	fractalGraphics.drawingContext.setLineDash([1, 1, 1, 1]);
+
 	t = 0;
 }
 
@@ -108,6 +128,9 @@ function draw() {
 	originalGraphics.noStroke();
 	originalGraphics.fill(32, 32, 32, 3);
 	originalGraphics.rect(0, 0, width, height);
+
+	// 每帧清空辉光画布，消除累积绘制产生的长灰色拖影，使其表现保持和原版一致的干净通透
+	glowGraphics.clear();
 
 	// ========== 1. 线条背景 (lineGraphics) — 向心收缩的波纹环 ==========
 	par_num = random(300, 400);
@@ -260,32 +283,44 @@ function draw() {
 		let life = constrain(gc.dist / (mySize * 0.15), 0, 1);
 		let currentSize = gc.size * life; // 接近中心时缩小
 
-		originalGraphics.push();
-		originalGraphics.translate(gx, gy);
+		glowGraphics.push();
+		glowGraphics.translate(gx, gy);
 
 		let glAlpha = int(life * 128).toString(16).padStart(2, '0');
-		originalGraphics.drawingContext.shadowColor = gc.shadowColor + glAlpha;
-		originalGraphics.drawingContext.shadowOffsetX = 0;
-		originalGraphics.drawingContext.shadowOffsetY = 0;
-		originalGraphics.drawingContext.shadowBlur = gc.blurAmount * life;
-		originalGraphics.fill(0);
-		originalGraphics.noStroke();
+		glowGraphics.drawingContext.shadowColor = gc.shadowColor + glAlpha;
+		glowGraphics.drawingContext.shadowOffsetX = 0;
+		glowGraphics.drawingContext.shadowOffsetY = 0;
+		glowGraphics.drawingContext.shadowBlur = gc.blurAmount * life;
+		glowGraphics.fill(0);
+		glowGraphics.noStroke();
 
 		let gradR = max(1, currentSize);
-		let grad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, gradR);
+		let grad = glowGraphics.drawingContext.createRadialGradient(0, 0, 0, 0, 0, gradR);
 		let gradAlpha = int(life * 51).toString(16).padStart(2, '0');
 		grad.addColorStop(0.0, gc.color + "00");
 		grad.addColorStop(0.4, gc.color + gradAlpha);
 		grad.addColorStop(0.85, gc.color + "00");
-		originalGraphics.drawingContext.fillStyle = grad;
-		originalGraphics.circle(0, 0, gradR * 2);
+		glowGraphics.drawingContext.fillStyle = grad;
+		glowGraphics.circle(0, 0, gradR * 2);
 
-		originalGraphics.pop();
+		glowGraphics.pop();
 	}
 
 	blendMode(BLEND);
 	image(originalGraphics, 0, 0);
+	image(glowGraphics, 0, 0);
 	image(overAllTexture, 0, 0);
+
+	// ========== 4. 叠加分形图案与蓝色边框 (从静态图二还原，保持画面不剧变) ==========
+	blendMode(ADD);
+	image(fractalGraphics, 0, 0);
+	blendMode(BLEND);
+
+	noFill();
+	strokeWeight(margin);
+	rectMode(CORNER);
+	stroke("#2B00C4");
+	rect(0, 0, width, height);
 
 	// ========== 3. 更新运动状态（绘制完成后更新，不干扰当前帧的随机序列）==========
 
