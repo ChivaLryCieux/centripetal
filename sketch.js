@@ -96,6 +96,15 @@ function draw() {
 	noiseSeed(int(seed));
 	let ver_val = int(random(4, 8));
 
+	// 每帧对离屏缓冲叠加一层极低透明度的背景色，使旧标记逐渐淡出
+	// alpha=3 → 标记约 8 秒后完全消失，形成流畅的向心拖尾轨迹
+	lineGraphics.noStroke();
+	lineGraphics.fill(32, 32, 32, 3);
+	lineGraphics.rect(0, 0, width, height);
+	originalGraphics.noStroke();
+	originalGraphics.fill(32, 32, 32, 3);
+	originalGraphics.rect(0, 0, width, height);
+
 	// ========== 1. 线条背景 (lineGraphics) — 向心收缩的波纹环 ==========
 	par_num = random(300, 400);
 	for (let i = 0; i <= par_num; i++) {
@@ -262,24 +271,4 @@ function draw() {
 		}
 	}
 
-	// ========== 4. 第 600 帧：停止绘制，叠加分形图案与边框 ==========
-	if (frameCount == 600) {
-		noLoop();
-		blendMode(BLEND);
-		image(overAllTexture, 0, 0);
-		blendMode(ADD);
-		strokeWeight(random(0.10, 0.2) / 1);
-		stroke(str(random(colorbg)) + "33");
-		noFill();
-		drawingContext.setLineDash([1, 5, 1, 3]);
-		drawOverPattern();
-		drawingContext.setLineDash([1, 1, 1, 1]);
-		blendMode(BLEND);
-
-		noFill();
-		strokeWeight(margin);
-		rectMode(CORNER);
-		stroke("#2B00C4");
-		rect(0, 0, width, height);
-	}
 }
