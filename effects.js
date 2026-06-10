@@ -18,17 +18,19 @@ function makeFilter() {
 	for (let i = 0; i < width; i++) {
 		for (let j = 0; j < height; j++) {
 			if (ver == 1) {
+				// 调高噪点不透明度，补偿无帧累积下的噪点显示效果
 				overAllTexture.set(
 					i,
 					j,
-					color(0, 0, random(95, 85), noise(i / 3, j / 3, (i * j) / 50) * random(5, 15))
+					color(0, 0, random(95, 85), noise(i / 3, j / 3, (i * j) / 50) * random(20, 40))
 				);
 			}
 			if (ver == 2) {
+				// 调高噪点亮度与不透明度，还原第一版细腻且质感丰富的胶片噪点颗粒感
 				overAllTexture.set(
 					i,
 					j,
-					color(0, 0, random(5, 10), noise(i / 3, j / 3, (i * j) / 50) * random(5, 15))
+					color(0, 0, random(15, 25), noise(i / 3, j / 3, (i * j) / 50) * random(25, 45))
 				);
 			}
 		}

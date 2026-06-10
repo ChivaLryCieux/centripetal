@@ -147,11 +147,11 @@ function draw() {
 		let ringIdx = i % LINE_RING_COUNT;
 		let ringRadius = lineRings[ringIdx].radius;
 
-		lineGraphics.fill(str(random(colorset)) + "33"); // 将 opacity 调高至 20% ("33")，提高颜色饱和度
+		lineGraphics.fill(str(random(colorset)) + "77"); // 将 opacity 调高至 47% ("77")，提高颜色饱和度与明亮度
 		lineGraphics.noStroke();
 		if (frameCount % 2 == 0) {
-			lineGraphics.stroke(str(random(colorset)) + "33");
-			lineGraphics.strokeWeight(random(0.25, 0.1));
+			lineGraphics.stroke(str(random(colorset)) + "77");
+			lineGraphics.strokeWeight(random(0.40, 0.15)); // 稍微加粗线条粗细，使细腻的丝状线条清晰可见
 			lineGraphics.noFill();
 		}
 		lineGraphics.drawingContext.shadowColor = str(random(colorbg)) + "0d";
@@ -207,8 +207,8 @@ function draw() {
 		let gard_w = random(mySize / 0.5, mySize / 1) / ver_val * spreadRatio;
 		let gard_h = random(mySize / 0.5, mySize / 1) / ver_val * spreadRatio;
 
-		// 透明度随生命因子变化：接近中心时逐渐消失（调高整体不透明度以提升色彩饱和度与明亮度）
-		let alphaVal = int(lerp(15, 90, lifeFactor));
+		// 透明度随生命因子变化：接近中心时逐渐消失（进一步调高整体不透明度以提升色彩饱和度与明亮度）
+		let alphaVal = int(lerp(30, 160, lifeFactor));
 		let alphaHex = alphaVal.toString(16).padStart(2, '0');
 		originalGraphics.stroke(str(random(colorset)) + alphaHex);
 		originalGraphics.strokeWeight(random(0.25, 0.75) * (1 - sqrt(random(random(random())))) * lifeFactor);
