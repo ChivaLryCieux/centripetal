@@ -41,6 +41,10 @@ const C_PARTICLE_COUNT = 8;
 let lineRings = [];
 const LINE_RING_COUNT = 5;
 
+// 向心辉光圆环：独立的径向渐变圆，从外缘向中心运动并在到达后销毁
+let glowCircles = [];
+const MAX_GLOW_CIRCLES = 30;
+
 function setup() {
 	frameRate(50);
 	randomSeed(int(seed));
@@ -214,32 +218,68 @@ function draw() {
 			originalGraphics.point(point_x, point_y);
 		}
 
-		// 径向渐变辉光（每 5 帧绘制一次）
-		if (frameCount % 5 == 0) {
-			originalGraphics.push();
-			randomSeed(seed * random(frameCount / 10));
-			originalGraphics.translate(
-				random(2.75, 0.75) * random(-gard_w, gard_w),
-				random(2.55, 1) * random(-gard_h, gard_h)
-			);
-			let glowAlpha = int(lifeFactor * 128).toString(16).padStart(2, '0');
-			originalGraphics.drawingContext.shadowColor = str(random(colorset)) + glowAlpha;
-			originalGraphics.drawingContext.shadowOffsetX = 0;
-			originalGraphics.drawingContext.shadowOffsetY = 0;
-			originalGraphics.drawingContext.shadowBlur = random(10, 50) * lifeFactor;
-			originalGraphics.fill(0);
-			originalGraphics.noStroke();
-			let gradR = random(1, 2) * random(gard_w, gard_h) / random(32, 8);
-			let grad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, gradR);
-			let gradAlpha = int(lifeFactor * 51).toString(16).padStart(2, '0');
-			grad.addColorStop(0.0, str(random(colorset)) + "00");
-			grad.addColorStop(random(0.55, 0.25), str(random(colorset)) + gradAlpha);
-			grad.addColorStop(random(0.65, 0.85), str(random(colorset)) + "00");
-			originalGraphics.drawingContext.fillStyle = grad;
-			originalGraphics.circle(0, 0, gradR);
-			originalGraphics.pop();
-		}
+
 		originalGraphics.pop();
+		originalGraphics.pop();
+	}
+
+	// ========== 3. 向心辉光圆环 — 独立运动、到达中心后销毁 ==========
+
+	// 每 5 帧在外缘生成新的辉光圆
+	if (frameCount % 5 == 0 && glowCircles.length < MAX_GLOW_CIRCLES) {
+		let spawnCount = 2 + Math.floor(Math.random() * 2); // 每次生成 2~3 个
+		for (let i = 0; i < spawnCount; i++) {
+			if (glowCircles.length >= MAX_GLOW_CIRCLES) break;
+			glowCircles.push({
+				angle: Math.random() * TWO_PI,
+				dist: mySize * (0.32 + Math.random() * 0.2),
+				speed: 0.25 + Math.random() * 0.5,
+				rotSpeed: (Math.random() - 0.5) * 0.006,
+				size: 10 + Math.random() * 50,
+				color: colorset[Math.floor(Math.random() * colorset.length)],
+				shadowColor: colorset[Math.floor(Math.random() * colorset.length)],
+				blurAmount: 10 + Math.random() * 40
+			});
+		}
+	}
+
+	// 更新位置、绘制、到达中心后销毁
+	for (let i = glowCircles.length - 1; i >= 0; i--) {
+		let gc = glowCircles[i];
+		gc.dist -= gc.speed;
+		gc.angle += gc.rotSpeed;
+
+		// 到达中心 → 销毁
+		if (gc.dist < 5) {
+			glowCircles.splice(i, 1);
+			continue;
+		}
+
+		let gx = width / 2 + cos(gc.angle) * gc.dist;
+		let gy = height / 2 + sin(gc.angle) * gc.dist;
+		let life = constrain(gc.dist / (mySize * 0.15), 0, 1);
+		let currentSize = gc.size * life; // 接近中心时缩小
+
+		originalGraphics.push();
+		originalGraphics.translate(gx, gy);
+
+		let glAlpha = int(life * 128).toString(16).padStart(2, '0');
+		originalGraphics.drawingContext.shadowColor = gc.shadowColor + glAlpha;
+		originalGraphics.drawingContext.shadowOffsetX = 0;
+		originalGraphics.drawingContext.shadowOffsetY = 0;
+		originalGraphics.drawingContext.shadowBlur = gc.blurAmount * life;
+		originalGraphics.fill(0);
+		originalGraphics.noStroke();
+
+		let gradR = max(1, currentSize);
+		let grad = drawingContext.createRadialGradient(0, 0, 0, 0, 0, gradR);
+		let gradAlpha = int(life * 51).toString(16).padStart(2, '0');
+		grad.addColorStop(0.0, gc.color + "00");
+		grad.addColorStop(0.4, gc.color + gradAlpha);
+		grad.addColorStop(0.85, gc.color + "00");
+		originalGraphics.drawingContext.fillStyle = grad;
+		originalGraphics.circle(0, 0, gradR * 2);
+
 		originalGraphics.pop();
 	}
 
