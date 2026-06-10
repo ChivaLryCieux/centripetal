@@ -116,18 +116,26 @@ function setup() {
 }
 
 function draw() {
+	// 每次绘制前清空主画布背景，配合离屏画布的 destination-out 渐隐，呈现干净饱和的色彩叠加
+	background("#202020");
+
 	randomSeed(seed);
 	noiseSeed(int(seed));
 	let ver_val = int(random(4, 8));
 
-	// 每帧对离屏缓冲叠加一层较高透明度的背景色，使旧标记快速淡出
-	// 将 alpha 从 3 提高到 18，使拖尾缩短，呈现更有长度感的动态曲线段，且到达中心后快速消失
+	// 针对 lineGraphics 进行 destination-out 渐隐（只降低透明度，不混色，保持颜色鲜艳不发灰）
+	lineGraphics.drawingContext.globalCompositeOperation = 'destination-out';
 	lineGraphics.noStroke();
-	lineGraphics.fill(32, 32, 32, 18);
+	lineGraphics.fill(0, 0, 0, 18);
 	lineGraphics.rect(0, 0, width, height);
+	lineGraphics.drawingContext.globalCompositeOperation = 'source-over';
+
+	// 针对 originalGraphics 进行 destination-out 渐隐（只降低透明度，不混色，保持颜色鲜艳不发灰）
+	originalGraphics.drawingContext.globalCompositeOperation = 'destination-out';
 	originalGraphics.noStroke();
-	originalGraphics.fill(32, 32, 32, 18);
+	originalGraphics.fill(0, 0, 0, 18);
 	originalGraphics.rect(0, 0, width, height);
+	originalGraphics.drawingContext.globalCompositeOperation = 'source-over';
 
 	// 每帧清空辉光画布，消除累积绘制产生的长灰色拖影，使其表现保持和原版一致的干净通透
 	glowGraphics.clear();
@@ -139,10 +147,10 @@ function draw() {
 		let ringIdx = i % LINE_RING_COUNT;
 		let ringRadius = lineRings[ringIdx].radius;
 
-		lineGraphics.fill(str(random(colorset)) + "0d");
+		lineGraphics.fill(str(random(colorset)) + "33"); // 将 opacity 调高至 20% ("33")，提高颜色饱和度
 		lineGraphics.noStroke();
 		if (frameCount % 2 == 0) {
-			lineGraphics.stroke(str(random(colorset)) + "0d");
+			lineGraphics.stroke(str(random(colorset)) + "33");
 			lineGraphics.strokeWeight(random(0.25, 0.1));
 			lineGraphics.noFill();
 		}
@@ -199,8 +207,8 @@ function draw() {
 		let gard_w = random(mySize / 0.5, mySize / 1) / ver_val * spreadRatio;
 		let gard_h = random(mySize / 0.5, mySize / 1) / ver_val * spreadRatio;
 
-		// 透明度随生命因子变化：接近中心时逐渐消失
-		let alphaVal = int(lerp(4, 26, lifeFactor));
+		// 透明度随生命因子变化：接近中心时逐渐消失（调高整体不透明度以提升色彩饱和度与明亮度）
+		let alphaVal = int(lerp(15, 90, lifeFactor));
 		let alphaHex = alphaVal.toString(16).padStart(2, '0');
 		originalGraphics.stroke(str(random(colorset)) + alphaHex);
 		originalGraphics.strokeWeight(random(0.25, 0.75) * (1 - sqrt(random(random(random())))) * lifeFactor);
@@ -286,7 +294,7 @@ function draw() {
 		glowGraphics.push();
 		glowGraphics.translate(gx, gy);
 
-		let glAlpha = int(life * 128).toString(16).padStart(2, '0');
+		let glAlpha = int(life * 230).toString(16).padStart(2, '0'); // 将 shadow 最大不透明度提至 90% (230)
 		glowGraphics.drawingContext.shadowColor = gc.shadowColor + glAlpha;
 		glowGraphics.drawingContext.shadowOffsetX = 0;
 		glowGraphics.drawingContext.shadowOffsetY = 0;
@@ -296,7 +304,7 @@ function draw() {
 
 		let gradR = max(1, currentSize);
 		let grad = glowGraphics.drawingContext.createRadialGradient(0, 0, 0, 0, 0, gradR);
-		let gradAlpha = int(life * 51).toString(16).padStart(2, '0');
+		let gradAlpha = int(life * 180).toString(16).padStart(2, '0'); // 将 gradient 最大不透明度从 20% ("33") 提至 70% ("b4")
 		grad.addColorStop(0.0, gc.color + "00");
 		grad.addColorStop(0.4, gc.color + gradAlpha);
 		grad.addColorStop(0.85, gc.color + "00");
