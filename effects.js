@@ -13,25 +13,22 @@ function keyTyped() {
 function makeFilter() {
 	colorMode(HSB, 360, 100, 100, 100);
 	drawingContext.shadowColor = color(0, 0, 5, 95);
+	
 	overAllTexture = createGraphics(width, height);
 	overAllTexture.loadPixels();
 	for (let i = 0; i < width; i++) {
 		for (let j = 0; j < height; j++) {
+			let n = noise(i / 3, j / 3, (i * j) / 50);
 			if (ver == 1) {
-				// 调高噪点不透明度，补偿无帧累积下的噪点显示效果
-				overAllTexture.set(
-					i,
-					j,
-					color(0, 0, random(95, 85), noise(i / 3, j / 3, (i * j) / 50) * random(20, 40))
-				);
+				// 浅色主题下：白噪点
+				let alphaVal = n * random(25, 50);
+				overAllTexture.set(i, j, [255, 255, 255, alphaVal]);
 			}
 			if (ver == 2) {
-				// 调高噪点亮度与不透明度，还原第一版细腻且质感丰富的胶片噪点颗粒感
-				overAllTexture.set(
-					i,
-					j,
-					color(0, 0, random(15, 25), noise(i / 3, j / 3, (i * j) / 50) * random(25, 45))
-				);
+				// 深色主题下：直接写入高亮白灰色颗粒，还原第一版细腻有质感的噪点杂色
+				let alphaVal = n * random(25, 55); // 25%-55% 的透明度
+				let grayVal = random(160, 230);   // 亮白灰色
+				overAllTexture.set(i, j, [grayVal, grayVal, grayVal, alphaVal]);
 			}
 		}
 	}

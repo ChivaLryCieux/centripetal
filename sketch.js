@@ -37,7 +37,7 @@ let ver;
 
 // 向心粒子系统：粒子从外缘向中心螺旋运动
 let cParticles = [];
-const C_PARTICLE_COUNT = 16; // 增加粒子数量以补偿较快淡出带来的密度降低
+const C_PARTICLE_COUNT = 12; // 调整为 12，配合 10 倍长的渐消拖尾，可自动累积成星尘长尾效果
 
 // 向心线条环：从外向内收缩的多层波纹环
 let lineRings = [];
@@ -124,16 +124,17 @@ function draw() {
 	let ver_val = int(random(4, 8));
 
 	// 针对 lineGraphics 进行 destination-out 渐隐（只降低透明度，不混色，保持颜色鲜艳不发灰）
+	// 将 alpha 从 18 调低至 2，使线条/粒子拖尾加长 10 倍，在运动路径上形成长而连贯的星轨
 	lineGraphics.drawingContext.globalCompositeOperation = 'destination-out';
 	lineGraphics.noStroke();
-	lineGraphics.fill(0, 0, 0, 18);
+	lineGraphics.fill(0, 0, 0, 2);
 	lineGraphics.rect(0, 0, width, height);
 	lineGraphics.drawingContext.globalCompositeOperation = 'source-over';
 
 	// 针对 originalGraphics 进行 destination-out 渐隐（只降低透明度，不混色，保持颜色鲜艳不发灰）
 	originalGraphics.drawingContext.globalCompositeOperation = 'destination-out';
 	originalGraphics.noStroke();
-	originalGraphics.fill(0, 0, 0, 18);
+	originalGraphics.fill(0, 0, 0, 2);
 	originalGraphics.rect(0, 0, width, height);
 	originalGraphics.drawingContext.globalCompositeOperation = 'source-over';
 
@@ -147,11 +148,16 @@ function draw() {
 		let ringIdx = i % LINE_RING_COUNT;
 		let ringRadius = lineRings[ringIdx].radius;
 
-		lineGraphics.fill(str(random(colorset)) + "77"); // 将 opacity 调高至 47% ("77")，提高颜色饱和度与明亮度
+		// 线条生命周期机制：随半径收缩而渐隐并变细，在归于中心前自然销毁消失
+		let lifeFactor = constrain(ringRadius / (mySize * 0.15), 0, 1);
+		let alphaVal = int(lifeFactor * 200); // 调高最大不透明度至 78% ("c8")，使颜色极其鲜艳饱满
+		let alphaHex = alphaVal.toString(16).padStart(2, '0');
+
+		lineGraphics.fill(str(random(colorset)) + alphaHex);
 		lineGraphics.noStroke();
 		if (frameCount % 2 == 0) {
-			lineGraphics.stroke(str(random(colorset)) + "77");
-			lineGraphics.strokeWeight(random(0.40, 0.15)); // 稍微加粗线条粗细，使细腻的丝状线条清晰可见
+			lineGraphics.stroke(str(random(colorset)) + alphaHex);
+			lineGraphics.strokeWeight(random(0.40, 0.15) * lifeFactor); // 稍微加粗线条，且随生命因子收缩
 			lineGraphics.noFill();
 		}
 		lineGraphics.drawingContext.shadowColor = str(random(colorbg)) + "0d";
@@ -208,7 +214,7 @@ function draw() {
 		let gard_h = random(mySize / 0.5, mySize / 1) / ver_val * spreadRatio;
 
 		// 透明度随生命因子变化：接近中心时逐渐消失（进一步调高整体不透明度以提升色彩饱和度与明亮度）
-		let alphaVal = int(lerp(30, 160, lifeFactor));
+		let alphaVal = int(lerp(40, 220, lifeFactor));
 		let alphaHex = alphaVal.toString(16).padStart(2, '0');
 		originalGraphics.stroke(str(random(colorset)) + alphaHex);
 		originalGraphics.strokeWeight(random(0.25, 0.75) * (1 - sqrt(random(random(random())))) * lifeFactor);
