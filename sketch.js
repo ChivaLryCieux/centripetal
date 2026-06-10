@@ -37,7 +37,7 @@ let ver;
 
 // 向心粒子系统：粒子从外缘向中心螺旋运动
 let cParticles = [];
-const C_PARTICLE_COUNT = 8;
+const C_PARTICLE_COUNT = 16; // 增加粒子数量以补偿较快淡出带来的密度降低
 
 // 向心线条环：从外向内收缩的多层波纹环
 let lineRings = [];
@@ -120,20 +120,20 @@ function draw() {
 	noiseSeed(int(seed));
 	let ver_val = int(random(4, 8));
 
-	// 每帧对离屏缓冲叠加一层极低透明度的背景色，使旧标记逐渐淡出
-	// alpha=3 → 标记约 8 秒后完全消失，形成流畅的向心拖尾轨迹
+	// 每帧对离屏缓冲叠加一层较高透明度的背景色，使旧标记快速淡出
+	// 将 alpha 从 3 提高到 18，使拖尾缩短，呈现更有长度感的动态曲线段，且到达中心后快速消失
 	lineGraphics.noStroke();
-	lineGraphics.fill(32, 32, 32, 3);
+	lineGraphics.fill(32, 32, 32, 18);
 	lineGraphics.rect(0, 0, width, height);
 	originalGraphics.noStroke();
-	originalGraphics.fill(32, 32, 32, 3);
+	originalGraphics.fill(32, 32, 32, 18);
 	originalGraphics.rect(0, 0, width, height);
 
 	// 每帧清空辉光画布，消除累积绘制产生的长灰色拖影，使其表现保持和原版一致的干净通透
 	glowGraphics.clear();
 
 	// ========== 1. 线条背景 (lineGraphics) — 向心收缩的波纹环 ==========
-	par_num = random(300, 400);
+	par_num = random(600, 800); // 增加绘制线条的样本数，维持画面质感的细腻与丰富度
 	for (let i = 0; i <= par_num; i++) {
 		// 将每个标记分配到不同的收缩环上
 		let ringIdx = i % LINE_RING_COUNT;
