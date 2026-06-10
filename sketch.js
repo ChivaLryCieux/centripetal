@@ -135,7 +135,7 @@ function draw() {
 	glowGraphics.clear();
 
 	// ========== 1. 线条背景 (lineGraphics) — 向心收缩的波纹环 ==========
-	par_num = random(600, 800); // 增加绘制线条的样本数，维持画面质感的细腻与丰富度
+	par_num = random(300, 400); // 恢复原型密度 (300 到 400)
 	for (let i = 0; i <= par_num; i++) {
 		// 将每个标记分配到不同的收缩环上
 		let ringIdx = i % LINE_RING_COUNT;
@@ -143,21 +143,22 @@ function draw() {
 
 		// 线条生命周期机制：随半径收缩而渐隐并变细，在归于中心前自然销毁消失
 		let lifeFactor = constrain(ringRadius / (mySize * 0.15), 0, 1);
-		let alphaVal = int(lifeFactor * 200); // 调高最大不透明度至 78% ("c8")，使颜色极其鲜艳饱满
+		// 恢复原型配色与粗细：使用较小的透明度（最大透明度为 "1a" 约 10%）和很细的线条（0.1 到 0.25）
+		let alphaVal = int(lifeFactor * 26);
 		let alphaHex = alphaVal.toString(16).padStart(2, '0');
 
 		originalGraphics.fill(str(random(colorset)) + alphaHex);
 		originalGraphics.noStroke();
 		if (frameCount % 2 == 0) {
 			originalGraphics.stroke(str(random(colorset)) + alphaHex);
-			originalGraphics.strokeWeight(random(0.40, 0.15) * lifeFactor); // 稍微加粗线条，且随生命因子收缩
+			originalGraphics.strokeWeight(random(0.25, 0.1) * lifeFactor); // 恢复原型粗细 (0.1 到 0.25)
 			originalGraphics.noFill();
 		}
-		let lineShadowAlpha = int(lifeFactor * 40).toString(16).padStart(2, '0'); // 给线条也注入轻微有色的晕染感
-		originalGraphics.drawingContext.shadowColor = str(random(colorbg)) + lineShadowAlpha;
-		originalGraphics.drawingContext.shadowOffsetX = random(-0.5, 0.5);
-		originalGraphics.drawingContext.shadowOffsetY = random(-0.5, 0.5);
-		originalGraphics.drawingContext.shadowBlur = random(1, 4) * lifeFactor;
+		// 恢复原型阴影设置：模糊度设为 0，偏置设为 1，确保线条边缘极其锐利清晰
+		originalGraphics.drawingContext.shadowColor = str(random(colorbg)) + "0d";
+		originalGraphics.drawingContext.shadowOffsetX = 1;
+		originalGraphics.drawingContext.shadowOffsetY = 1;
+		originalGraphics.drawingContext.shadowBlur = 0;
 
 		const xAngle = map(0, 0, width, -random(0.5, 1) * PI, random(0.5, 1) * PI, true);
 		const yAngle = map(height, 0, height, -random(0.5, 1) * PI, random(0.5, 1) * PI, true);
