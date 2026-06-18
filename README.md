@@ -1,6 +1,6 @@
 # Centripetal - 创生艺术与向心引力
 
-这是一个基于 **p5.js** 开发的生成艺术（Generative Art）项目。本项目的设计灵感来源于经典生成艺术作品——Jared Tarbell 于 2003 年创作的 *Bubble Chamber（气泡室）*。
+这是一个基于 **p5.js** 开发的生成艺术（Generative Art）项目。本项目的设计灵感来源于经典生成艺术作品——Jared Tarbell 于 2003 年创作的 *Bubble Chamber（气泡室）*。[Complexification | Gallery of Computation](http://www.complexification.net/gallery/) [Jared S Tarbell – Generative Art and Computational Work](https://www.jaredstarbell.com/)
 
 项目通过流动的线迹背景、不断向外辐射扩散的微小粒子同心环、若隐若现的渐变恒星辉光，以及在最终阶段（第 600 帧）瞬间定格的精密几何分形网格，构建出了一个融合了“有机混沌”与“秩序几何”的视觉宇宙。
 

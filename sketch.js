@@ -10,22 +10,25 @@
 var mySize, margin;
 var seed = Math.random() * 9217;
 
-// 色彩定义
-let colors1 = "fef9fb-fafdff-fcfbf4-f9f8f6".split("-").map((a) => "#" + a);
+// 色彩定义 — 投影模式：白底搭配高饱和度彩色
+// 浅底色（用于背景）
+let colors1 = "ffffff-fafdff-fcfbf4-f9f8f6".split("-").map((a) => "#" + a);
 let colors2;
-let colors_tone1 = "0D1E40-224573-5679A6-F2A25C-D96B43".split("-").map((a) => "#" + a);
-let colors_tone2 = "7E56A6-F28B50-A63B14-591202-260101".split("-").map((a) => "#" + a);
-let colors_tone3 = "4ED98A-3B8C57-F2AD85-404040-0D0D0D".split("-").map((a) => "#" + a);
-let colors_tone4 = "725373-7866F2-8979F2-025373-BF7D56".split("-").map((a) => "#" + a);
-let colors_tone5 = "20BF1B-218C11-17590C-11400A-0D0D0D".split("-").map((a) => "#" + a);
-let colors_tone6 = "F20519-A60522-031059-071773-044BD9".split("-").map((a) => "#" + a);
-let colors_tone7 = "F2E96D-F2B84B-BF8034-402B12-0D0D0D".split("-").map((a) => "#" + a);
-let colors_tone8 = "9E9BF2-F2E088-F29544-F24405-F27E63".split("-").map((a) => "#" + a); // candy memory
+// 高饱和度调色板（已重新调整：替换原本黑色/灰色项为高饱和颜色，确保在白底上清晰且鲜艳）
+let colors_tone1 = "0D1E40-224573-5679A6-F2A25C-D96B43".split("-").map((a) => "#" + a); // 海洋日落
+let colors_tone2 = "7E56A6-F28B50-A63B14-591202-D9043D".split("-").map((a) => "#" + a); // 红橙紫
+let colors_tone3 = "4ED98A-3B8C57-F2AD85-2E86AB-D9043D".split("-").map((a) => "#" + a); // 翠绿橙
+let colors_tone4 = "725373-7866F2-8979F2-025373-BF7D56".split("-").map((a) => "#" + a); // 紫青暖
+let colors_tone5 = "20BF1B-218C11-17590C-D9A404-D9043D".split("-").map((a) => "#" + a); // 森林霓虹
+let colors_tone6 = "F20519-A60522-031059-071773-044BD9".split("-").map((a) => "#" + a); // 红蓝高对比
+let colors_tone7 = "F2E96D-F2B84B-BF8034-D9043D-7E56A6".split("-").map((a) => "#" + a); // 金黄暖
+let colors_tone8 = "9E9BF2-F2E088-F29544-F24405-F27E63".split("-").map((a) => "#" + a); // 糖果记忆
 
 let colors_root = "362300-805300-402900-734E39".split("-").map((a) => "#" + a);
 
 let colorset = [];
-let colorbg = "1C2611-2B4016-261416-031740".split("-").map((a) => "#" + a); // dark
+// 高饱和深色调色板：用于阴影/分形纹理，在白底上提供清晰且色彩斑斓的对比
+let colorbg = "1a3370-7a1a73-066b5e-a30a3a-3d0a8c-c44a00".split("-").map((a) => "#" + a);
 let filter1;
 let t, par_num;
 let originalGraphics; // 合并后的主离屏画布，包含背景和所有累加绘制的线条与粒子
@@ -85,12 +88,9 @@ function setup() {
 	colorset[3] = random(colors2);
 	colorset[4] = random(colors2);
 	colorset[5] = random(colors2);
-	// ver = random([1, 2]);
-	ver = 2;
-	bgCol = random(colorbg);
-	if (ver == 1) {
-		bgCol = "#fafdff";
-	}
+	// 投影模式：使用浅色版本，纯白背景以保持画面整体明亮
+	ver = 1;
+	bgCol = "#ffffff";
 	background(bgCol);
 
 	// 初始化主离屏画布为不透明的背景底色，以 RGB 模式安全处理避免 colorMode 混淆
@@ -143,8 +143,8 @@ function draw() {
 
 		// 线条生命周期机制：随半径收缩而渐隐并变细，在归于中心前自然销毁消失
 		let lifeFactor = constrain(ringRadius / (mySize * 0.15), 0, 1);
-		// 恢复原型配色与粗细：优化透明度范围（lerp 到 13~26，约 5%~10%）和线条粗细（0.15 到 0.35，取消随 lifeFactor 强制缩减为 0）
-		let alphaVal = int(lerp(13, 26, lifeFactor));
+		// 投影模式：白底需要更高的不透明度才能看清线条（提至 ~25%~50%）
+		let alphaVal = int(lerp(64, 128, lifeFactor));
 		let alphaHex = alphaVal.toString(16).padStart(2, '0');
 
 		originalGraphics.fill(str(random(colorset)) + alphaHex);
@@ -318,8 +318,9 @@ function draw() {
 	image(glowGraphics, 0, 0);
 	image(overAllTexture, 0, 0);
 
-	// ========== 4. 叠加分形图案与蓝色边框 (从静态图二还原，保持画面不剧变) ==========
-	blendMode(ADD);
+	// ========== 4. 叠加分形图案与边框 (从静态图二还原，保持画面不剧变) ==========
+	// MULTIPLY 让深色分形纹理在白底上以高饱和度色彩呈现，而不是被白底吞掉
+	blendMode(MULTIPLY);
 	image(fractalGraphics, 0, 0);
 	blendMode(BLEND);
 

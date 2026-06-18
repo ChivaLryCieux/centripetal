@@ -20,9 +20,10 @@ function makeFilter() {
 		for (let j = 0; j < height; j++) {
 			let n = noise(i / 3, j / 3, (i * j) / 50);
 			if (ver == 1) {
-				// 浅色主题下：白噪点
-				let alphaVal = n * random(25, 50);
-				overAllTexture.set(i, j, [255, 255, 255, alphaVal]);
+				// 浅色主题（投影模式）：深灰颗粒，在白底上提供胶片质感而不致刺眼
+				let alphaVal = n * random(15, 35);
+				let grayVal = random(40, 90); // 深灰
+				overAllTexture.set(i, j, [grayVal, grayVal, grayVal, alphaVal]);
 			}
 			if (ver == 2) {
 				// 深色主题下：直接写入高亮白灰色颗粒，还原第一版细腻有质感的噪点杂色
