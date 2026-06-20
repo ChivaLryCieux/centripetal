@@ -31,6 +31,35 @@ let colorset = [];
 let colorbg = "1a3370-7a1a73-066b5e-a30a3a-3d0a8c-c44a00".split("-").map((a) => "#" + a);
 let filter1;
 let t, par_num;
+
+// --- 实时数据驱动：上证指数 (SSE Composite Index) ---
+// 数据由 data.js 的 SSE 层提供（live quote，失败回退到 sse_index_daily.csv）。
+// 映射策略：指数点位 → 向心流速 + 辉光强度；当日涨跌方向 → 调色板冷暖。
+let warmPalettes = [colors_tone2, colors_tone7, colors_tone8, colors_tone5]; // 涨：暖色
+let coolPalettes = [colors_tone1, colors_tone3, colors_tone4, colors_tone6]; // 跌：冷色
+let lastChangeSign = 0;        // 上一次涨跌方向，用于检测翻转并重选调色板
+let lastPaletteFlipMs = -10000; // 调色板翻转节流，避免在零点附近频繁闪烁
+let displayNorm = 0.5;         // 缓动后的归一化指数 [0,1]，用于驱动视觉
+let speedMul = 1.0;            // 向心流速倍率（由指数点位驱动）
+let glowMul = 1.0;             // 辉光强度倍率（由指数点位驱动）
+
+// 根据涨跌方向从对应色系中重选调色板，重建 colorset
+function applyPalette(sign) {
+	const family = sign >= 0 ? warmPalettes : coolPalettes;
+	colors2 = random(family);
+	colorset[0] = random(colors2);
+	colorset[1] = random(colors2);
+	colorset[2] = random(colors1);
+	colorset[3] = random(colors2);
+	colorset[4] = random(colors2);
+	colorset[5] = random(colors2);
+	lastChangeSign = sign;
+}
+
+// 数据层 preload：加载上证指数缓存样本（live quote 在 draw 中按节拍拉取）
+function preload() {
+	SSE.preload();
+}
 let originalGraphics; // 合并后的主离屏画布，包含背景和所有累加绘制的线条与粒子
 let glowGraphics; // 独立的向心辉光离屏画布，每帧清空以消除灰色拖影
 let fractalGraphics; // 顶层分形图案静态缓存离屏画布，在 setup 中一次性绘制，保持高性能
@@ -80,14 +109,11 @@ function setup() {
 	}
 
 	// pixelDensity(3);
-	colors2 = random([colors_tone1, colors_tone2, colors_tone3, colors_tone4, colors_tone5, colors_tone6, colors_tone7, colors_tone8]);
-	// colors2 = colors_tone8;
-	colorset[0] = random(colors2);
-	colorset[1] = random(colors2);
-	colorset[2] = random(colors1);
-	colorset[3] = random(colors2);
-	colorset[4] = random(colors2);
-	colorset[5] = random(colors2);
+	// 初始化实时数据层：计算观测区间、从最新缓存行播种当前读数
+	SSE.init();
+	// 依据初始涨跌方向选择冷暖调色板（替代原先的完全随机选色）
+	applyPalette(Math.sign(SSE.state.changePct));
+	displayNorm = SSE.norm(SSE.state.value);
 	// 投影模式：使用浅色版本，纯白背景以保持画面整体明亮
 	ver = 1;
 	bgCol = "#ffffff";
@@ -123,6 +149,20 @@ function draw() {
 	randomSeed(seed);
 	noiseSeed(int(seed));
 	let ver_val = int(random(4, 8));
+
+	// ========== 0. 实时数据驱动更新 ==========
+	// 拉取/步进上证指数读数，缓动归一化值，推导流速与辉光倍率
+	const st = SSE.update(millis());
+	const targetNorm = SSE.norm(st.value);
+	displayNorm = lerp(displayNorm, targetNorm, 0.05);
+	speedMul = lerp(0.55, 1.6, displayNorm); // 指数越高 → 向心流速越快
+	glowMul = lerp(0.4, 1.5, displayNorm);   // 指数越高 → 辉光越强
+	// 涨跌方向翻转（且距上次翻转 > 8s）→ 重选冷暖调色板
+	const sign = Math.sign(st.changePct);
+	if (sign !== 0 && sign !== lastChangeSign && millis() - lastPaletteFlipMs > 8000) {
+		applyPalette(sign);
+		lastPaletteFlipMs = millis();
+	}
 
 	// 针对已合并的 originalGraphics 进行渐隐
 	// 使用 BLEND 模式叠加极透明的背景色（alpha=3），使拖尾在流向中心的过程中自然过渡到背景色，呈现五彩斑斓的晕染变化而不留灰色拖影
@@ -174,7 +214,7 @@ function draw() {
 		originalGraphics.ellipse(0, 0, random(0.75, 1.25) * (1 - sqrt(random(random(1)))));
 		originalGraphics.pop();
 	}
-	t += random(0.005, 0.01);
+	t += random(0.005, 0.01) * speedMul;
 
 	// ========== 2. 向心粒子点阵 (originalGraphics) — 由外向内螺旋运动 ==========
 	if (frameCount % 25 == 0) {
@@ -255,9 +295,9 @@ function draw() {
 
 	// ========== 3. 向心辉光圆环 — 独立运动、到达中心后销毁 ==========
 
-	// 每 5 帧在外缘生成新的辉光圆
+	// 每 5 帧在外缘生成新的辉光圆（数量与尺寸随指数点位增强）
 	if (frameCount % 5 == 0 && glowCircles.length < MAX_GLOW_CIRCLES) {
-		let spawnCount = 2 + Math.floor(Math.random() * 2); // 每次生成 2~3 个
+		let spawnCount = Math.floor((2 + Math.random() * 2) * glowMul); // 每次生成 2~3 个 × glowMul
 		for (let i = 0; i < spawnCount; i++) {
 			if (glowCircles.length >= MAX_GLOW_CIRCLES) break;
 			glowCircles.push({
@@ -265,10 +305,10 @@ function draw() {
 				dist: mySize * (0.32 + Math.random() * 0.2),
 				speed: 0.25 + Math.random() * 0.5,
 				rotSpeed: (Math.random() - 0.5) * 0.006,
-				size: 10 + Math.random() * 50,
+				size: (10 + Math.random() * 50) * glowMul,
 				color: colorset[Math.floor(Math.random() * colorset.length)],
 				shadowColor: colorset[Math.floor(Math.random() * colorset.length)],
-				blurAmount: 10 + Math.random() * 40
+				blurAmount: (10 + Math.random() * 40) * glowMul
 			});
 		}
 	}
@@ -276,7 +316,7 @@ function draw() {
 	// 更新位置、绘制、到达中心后销毁
 	for (let i = glowCircles.length - 1; i >= 0; i--) {
 		let gc = glowCircles[i];
-		gc.dist -= gc.speed;
+		gc.dist -= gc.speed * speedMul;
 		gc.angle += gc.rotSpeed;
 
 		// 到达中心 → 销毁
@@ -293,7 +333,8 @@ function draw() {
 		glowGraphics.push();
 		glowGraphics.translate(gx, gy);
 
-		let glAlpha = int(life * 230).toString(16).padStart(2, '0'); // 将 shadow 最大不透明度提至 90% (230)
+		// 辉光不透明度随指数点位增强（glowMul），并 clamp 到合法 hex 范围
+		let glAlpha = int(constrain(life * 230 * glowMul, 0, 255)).toString(16).padStart(2, '0');
 		glowGraphics.drawingContext.shadowColor = gc.shadowColor + glAlpha;
 		glowGraphics.drawingContext.shadowOffsetX = 0;
 		glowGraphics.drawingContext.shadowOffsetY = 0;
@@ -303,7 +344,7 @@ function draw() {
 
 		let gradR = max(1, currentSize);
 		let grad = glowGraphics.drawingContext.createRadialGradient(0, 0, 0, 0, 0, gradR);
-		let gradAlpha = int(life * 180).toString(16).padStart(2, '0'); // 将 gradient 最大不透明度从 20% ("33") 提至 70% ("b4")
+		let gradAlpha = int(constrain(life * 180 * glowMul, 0, 255)).toString(16).padStart(2, '0');
 		grad.addColorStop(0.0, gc.color + "00");
 		grad.addColorStop(0.4, gc.color + gradAlpha);
 		grad.addColorStop(0.85, gc.color + "00");
@@ -330,20 +371,23 @@ function draw() {
 	stroke("#2B00C4");
 	rect(0, 0, width, height);
 
+	// ========== 5. 现场铭牌 (in-space label) — 实时读数 ==========
+	drawHud(st);
+
 	// ========== 3. 更新运动状态（绘制完成后更新，不干扰当前帧的随机序列）==========
 
-	// 线条环向内收缩，到达中心后在外缘重生
+	// 线条环向内收缩，到达中心后在外缘重生（流速由指数点位驱动）
 	for (let ring of lineRings) {
-		ring.radius -= ring.speed;
+		ring.radius -= ring.speed * speedMul;
 		if (ring.radius < mySize * 0.02) {
 			ring.radius = mySize * (0.35 + Math.random() * 0.17);
 			ring.speed = 0.2 + Math.random() * 0.3;
 		}
 	}
 
-	// 向心粒子向中心移动并缓慢旋转，到达中心后在外缘重生
+	// 向心粒子向中心移动并缓慢旋转，到达中心后在外缘重生（流速由指数点位驱动）
 	for (let cp of cParticles) {
-		cp.dist -= cp.speed;
+		cp.dist -= cp.speed * speedMul;
 		cp.angle += cp.rotSpeed;
 		if (cp.dist < 3) {
 			cp.angle = Math.random() * TWO_PI;
@@ -354,4 +398,53 @@ function draw() {
 		}
 	}
 
+}
+
+/**
+ * 现场铭牌 (in-space label)：在画布左上角绘制实时读数
+ * 标题 + 当前点位 + 涨跌（点数 / 百分比）+ 时间戳 + 数据来源标记
+ * 主画布在 setup 中被 makeFilter 切到 HSB 模式，这里用 push/pop 临时切回 RGB。
+ */
+function drawHud(st) {
+	push();
+	colorMode(RGB, 255);
+	blendMode(BLEND);
+
+	const x0 = 16, y0 = 16, w = 348, h = 82;
+
+	// 半透明白底背板 + 细边框，保证在彩色画面上的可读性
+	noStroke();
+	fill(255, 255, 255, 232);
+	rect(x0, y0, w, h, 4);
+	noFill();
+	stroke(43, 0, 196, 110);
+	strokeWeight(1);
+	rect(x0, y0, w, h, 4);
+
+	noStroke();
+	textFont('monospace');
+	textAlign(LEFT, TOP);
+
+	// 标题
+	fill(43, 0, 196);
+	textSize(13);
+	text('CENTRIPETAL · SSE Composite Index', x0 + 12, y0 + 9);
+
+	// 数值 + 涨跌
+	const up = st.change >= 0;
+	const arrow = up ? '▲' : '▼';
+	const valStr = st.value.toFixed(2);
+	const chgStr = (up ? '+' : '') + st.change.toFixed(2);
+	const pctStr = (up ? '+' : '') + st.changePct.toFixed(2) + '%';
+	fill(up ? 217 : 34, up ? 4 : 69, up ? 61 : 115);
+	textSize(20);
+	text(`${valStr}  ${arrow} ${chgStr} (${pctStr})`, x0 + 12, y0 + 30);
+
+	// 时间戳 + 来源标记
+	fill(70);
+	textSize(11);
+	const srcTag = st.source === 'live' ? 'LIVE' : 'CACHE';
+	text(`${st.timestamp || '—'}   ·   ${srcTag} · qt.gtimg.cn`, x0 + 12, y0 + 59);
+
+	pop();
 }
