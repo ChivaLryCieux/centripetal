@@ -10,8 +10,10 @@
 
 项目代码经过语义化与规范化重命名，结构如下：
 *   **[`index.html`](file:///c:/Users/bb287/Desktop/centripetal/index.html)**：项目入口文件。优化了加载顺序，优先引入 p5.js 核心库，然后引入特效辅助脚本与主逻辑脚本。同时增加了居中排版和深色背景样式。
-*   **[`sketch.js`](file:///c:/Users/bb287/Desktop/centripetal/sketch.js)**：画布初始化与主渲染循环。负责流动线条背景绘制、向心点阵辐射计算、恒星渐变辉光渲染以及多图层混合合成。
+*   **[`sketch.js`](file:///c:/Users/bb287/Desktop/centripetal/sketch.js)**：画布初始化与主渲染循环。负责流动线条背景绘制、向心点阵辐射计算、恒星渐变辉光渲染以及多图层混合合成。并将上证指数实时读数映射到向心流速、辉光强度与调色板冷暖。
 *   **[`effects.js`](file:///c:/Users/bb287/Desktop/centripetal/effects.js)**：效果工具集。包含胶片噪点颗粒滤镜的计算、键盘交互保存事件以及递归划分三角形（谢尔宾斯基三角形变体）分形图案的计算。
+*   **[`data.js`](file:///c:/Users/bb287/Desktop/centripetal/data.js)**：实时数据层。拉取上证指数（SSE Composite Index）实时行情，失败时回退到本地的 `sse_index_daily.csv` 缓存样本，并对外暴露归一化点位、涨跌幅、时间戳与来源标记。
+*   **[`sse_index_daily.csv`](file:///c:/Users/bb287/Desktop/centripetal/sse_index_daily.csv)**：上证指数日线缓存样本（200 个交易日，2025-08-06 至 2026-06-05，含 date/open/close/high/low），作为实时拉取失败时的回退数据源。
 
 ---
 
@@ -63,17 +65,36 @@
 
 ---
 
+## 📈 实时数据映射 (Real-time Data Mapping)
+
+本项目以 **上证综合指数（SSE Composite Index）** 作为驱动材料，将市场行情接入向心引力的视觉宇宙。
+
+### 数据来源与回退
+*   **实时行情**：通过公开行情接口 `https://qt.gtimg.cn/q=sh000001` 每 30 秒拉取一次最新点位、涨跌点数与涨跌幅（该接口返回 `Access-Control-Allow-Origin: *`，浏览器可直接跨域请求）。
+*   **缓存回退**：当实时请求失败（离线 / 网络受限 / 行情接口不可达）时，自动回退到本地 `sse_index_daily.csv`，并按每 3 秒一个交易日的节拍向前推进，保证装置永不黑屏。实时读数超过 90 秒未刷新亦视为过期，回落到缓存流。
+
+### 数据 → 视觉映射
+| 数据维度 | 视觉属性 | 映射方式 |
+| --- | --- | --- |
+| 指数点位（归一化到观测区间 3633–4242） | 向心流速 `speedMul` | `lerp(0.55, 1.6, norm)` — 点位越高，粒子与线条向心坠落越快 |
+| 指数点位（归一化） | 辉光强度 `glowMul` | `lerp(0.4, 1.5, norm)` — 点位越高，向心辉光越亮越大 |
+| 当日涨跌方向 | 调色板冷暖 | 涨（change ≥ 0）→ 暖色系；跌 → 冷色系，方向翻转时重选 |
+
+画面左上角的**现场铭牌（in-space label）**实时显示：当前点位、涨跌（点数 / 百分比）、时间戳与 `LIVE` / `CACHE` 来源标记，构成公共场景中的“实时读数”说明牌。
+
+---
+
 ## 🚀 运行与保存
 
 1.  **运行项目**：
-    *   直接在浏览器中打开 `index.html`。
-    *   或者使用任意静态服务器运行项目目录：
+    *   **必须通过静态服务器运行**（`loadTable` 加载 CSV 不能在 `file://` 协议下工作）：
         ```bash
         # 使用 Python
         python -m http.server 8000
-        
+
         # 或者使用 Node.js
         npx http-server .
         ```
+    *   然后在浏览器中打开 `http://localhost:8000/index.html`。
 2.  **键盘交互**：
     *   运行过程中，随时可以在键盘上按下 **`S`** 或 **`s`** 键，快速将当前画布上的画面保存为高品质的 `.png` 图片。
